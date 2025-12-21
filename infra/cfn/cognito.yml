@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cognito UserPool + Hosted UI + Google IdP
+
+Parameters:
+  ProjectName: { Type: String }
+  CallbackURL: { Type: String }
+  LogoutURL:   { Type: String }
+  GoogleClientId:     { Type: String, NoEcho: true }
+  GoogleClientSecret: { Type: String, NoEcho: true }
+  DomainPrefix:       { Type: String, Description: "Cognito domain prefix" }
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-pool"
+      AutoVerifiedAttributes: [ email ]
+      Schema:
+        - Name: email
+          Required: true
+          AttributeDataType: String
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ProjectName}-spa"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [ code ]     # start at implicit for the smoke test if you want
+      AllowedOAuthScopes: [ openid, email, profile ]
+      CallbackURLs: [ !Ref CallbackURL ]
+      LogoutURLs:   [ !Ref LogoutURL ]
+      SupportedIdentityProviders: [ COGNITO, Google ]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+
+  GoogleProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      ProviderName: Google
+      ProviderType: Google
+      UserPoolId: !Ref UserPool
+      AttributeMapping: { email: email }
+      ProviderDetails:
+        client_id:     !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: "openid email profile"
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref DomainPrefix
+      UserPoolId: !Ref UserPool
+
+Outputs:
+  UserPoolId:     { Value: !Ref UserPool, Export: { Name: !Sub "${ProjectName}-UserPoolId" } }
+  UserPoolClientId: { Value: !Ref UserPoolClient, Export: { Name: !Sub "${ProjectName}-UserPoolClientId" } }
+  HostedUiDomain: { Value: !Sub "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com" }

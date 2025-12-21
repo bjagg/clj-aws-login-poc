@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SPA hosting on S3+CloudFront with OAC
+
+Parameters:
+  ProjectName: { Type: String }
+  DomainName:  { Type: String, Description: "app.example.com" }
+  CertificateArn: { Type: String, Description: "ACM cert in us-east-1" }
+
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-${AWS::Region}-spa"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  OAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      Name: !Sub "${ProjectName}-oac"
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectName}-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${ProjectName}-headers"
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'self'; connect-src 'self' https://*.amazoncognito.com; frame-ancestors 'none'; base-uri 'self';"
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          XContentTypeOptions: { Override: true }
+          XFrameOptions: { FrameOption: DENY, Override: true }
+          ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases: [ !Ref DomainName ]
+        DefaultRootObject: index.html
+        Origins:
+          - Id: SpaOrigin
+            DomainName: !GetAtt Bucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !GetAtt OAC.Id
+        DefaultCacheBehavior:
+          TargetOriginId: SpaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # CachingOptimized
+        ErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub "${Bucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+Outputs:
+  BucketName:      { Value: !Ref Bucket }
+  DistributionId:  { Value: !Ref Distribution }
+  CloudFrontURL:   { Value: !Sub "https://${DomainName}" }
