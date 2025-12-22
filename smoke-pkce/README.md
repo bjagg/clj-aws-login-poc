@@ -1,21 +1,31 @@
-# Smoke Test (Hosted UI + Google SSO)
+# Smoke Test (PKCE)
 
-This directory contains a tiny static SPA used to validate:
+This directory contains a tiny static SPA used to validate **Authorization Code + PKCE** with:
 
 - CloudFront + S3 static hosting
 - Cognito Hosted UI redirects
 - Google IdP integration
-- Callback routing (SPA-style)
+- PKCE token exchange from the browser (`/oauth2/token`)
 
-It is intentionally framework-free so you can confirm infrastructure works before adding re-frame.
+It is intentionally framework-free so you can confirm PKCE works before wiring it into re-frame.
 
 ---
 
 ## Files
 
-- `index.html` — static entrypoint (generic, committed)
+- `index.html` — static entrypoint (committed)
 - `app.example.js` — configuration template (committed)
-- `app.js` — your local configured version (**NOT committed**)
+- `app.js` — your local configured version (**DO NOT COMMIT**)
+
+---
+
+## Prerequisites
+
+Your Cognito App Client must allow **Authorization Code flow** (code-only is fine).
+
+This directory’s CloudFormation template sets:
+
+- `AllowedOAuthFlows: [ code ]`
 
 ---
 
@@ -24,36 +34,27 @@ It is intentionally framework-free so you can confirm infrastructure works befor
 ### 1) Copy the template
 
 ```bash
-cp smoke/app.example.js smoke/app.js
+cp app.example.js app.js
 ```
 
----
+### 2) Fill in placeholders in `app.js`
 
-### 2) Fill in placeholders in `smoke/app.js`
+Replace:
 
-Replace the following values:
+- `__HOSTED_UI__` (CloudFormation output: `HostedUiDomain`)
+- `__CLIENT_ID__` (CloudFormation output: `UserPoolClientId`)
 
-- `__HOSTED_UI__`  
-  (CloudFormation output: `HostedUiDomain`)
-- `__CLIENT_ID__`  
-  (CloudFormation output: `UserPoolClientId`)
-- Confirm:
-  - `redirectUri`
-  - `logoutUri`
-
-These must match your deployed domain exactly.
-
-You can fetch the required values with:
+Fetch values:
 
 ```bash
 HOSTED_UI=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-cognito \
+  --stack-name sso-poc-pkce-cognito \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='HostedUiDomain'].OutputValue" \
   --output text)
 
 CLIENT_ID=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-cognito \
+  --stack-name sso-poc-pkce-cognito \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
   --output text)
@@ -66,7 +67,7 @@ echo $CLIENT_ID
 
 ---
 
-### 3) Deploy infra (optional if already deployed)
+### 3) Deploy infra
 
 From this directory:
 
@@ -81,7 +82,7 @@ From this directory:
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-site \
+  --stack-name sso-poc-pkce-site \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" \
   --output text)
@@ -91,18 +92,16 @@ aws s3 sync . "s3://$BUCKET/" --exclude "infra/*" --exclude "scripts/*" --delete
 
 ---
 
-### 5) Invalidate CloudFront (recommended after updates)
+### 5) Invalidate CloudFront
 
 ```bash
 DIST=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-site \
+  --stack-name sso-poc-pkce-site \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
   --output text)
 
-aws cloudfront create-invalidation \
-  --distribution-id "$DIST" \
-  --paths "/*"
+aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
 ```
 
 ---
@@ -115,14 +114,24 @@ Open:
 https://<your-domain>/
 ```
 
-Click **Login with Google**. After login, decoded JWT claims should appear on the page.
+Click **Login with Google**. You should:
+
+1. Be redirected to Cognito Hosted UI
+2. Authenticate with Google
+3. Return to `/callback?code=...`
+4. Perform token exchange in the browser
+5. End back at `/` with decoded JWT claims displayed
 
 ---
 
-## Notes
+## Recommended .gitignore entry
 
-- This smoke test currently uses **implicit flow** (`response_type=token`) for simplicity.
-- In the PKCE section of this repo, the flow is upgraded to **Authorization Code + PKCE** and implicit flow is removed.
+Add this to your repo `.gitignore`:
+
+```gitignore
+# Smoke PKCE local config
+smoke-pkce/app.js
+```
 
 ---
 
