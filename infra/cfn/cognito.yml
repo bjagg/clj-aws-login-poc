@@ -30,7 +30,11 @@ Resources:
       UserPoolId: !Ref UserPool
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
-      AllowedOAuthFlows: [ code ]
+      AllowedOAuthFlows:
+        # Implicit is enabled temporarily for the smoke test.
+        # PKCE section later switches this to code-only.
+        - implicit
+        - code
       AllowedOAuthScopes: [ openid, email, profile ]
       CallbackURLs: [ !Ref CallbackURL ]
       LogoutURLs:   [ !Ref LogoutURL ]
