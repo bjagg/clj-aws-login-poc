@@ -1,201 +1,68 @@
-<img src="logo.png" width="30%" alt="Polylith" id="logo">
+# AWS Cognito Social Login (Google) — ClojureScript PoC
 
-# Minimal re-frame SSO PoC (AWS Cognito + Google)
+This repo is a **learning-focused** proof of concept for adding **social SSO** (Google)
+to a **static SPA** hosted on AWS, using:
 
-This repository is a **proof of concept** demonstrating how to add
-**social login (Google SSO)** to a **minimal ClojureScript / re-frame
-SPA**, using **AWS-native infrastructure** and **CloudFormation**.
+- **Cognito Hosted UI** + **OAuth 2.0**
+- **CloudFront + S3** static hosting
+- **Route53 + ACM** (DNS + TLS)
+- Two progressively more “real” front-end examples:
+  - a tiny vanilla JS smoke test
+  - a ClojureScript **re-frame** app (Polylith workspace)
 
-The goals of this repo are:
+---
 
-- Demonstrate a clean **SPA authentication flow** using Amazon Cognito
-    Hosted UI
-- Show how to keep **secrets and ARNs out of a public repo**
-- Provide a **Polylith-friendly layout** that can be copied into a
-    larger platform later
-- Keep infrastructure **tear-down friendly** for experimentation
+## Choose your path
 
-## Auth Flow (PoC)
+### 1) Smoke test (Implicit Flow) — quickest sanity check
 
-1. User clicks **Sign in**
-2. Browser redirects to **Cognito Hosted UI**
-3. Cognito delegates authentication to **Google**
-4. Cognito redirects back to `/callback`
-5. SPA parses the result and establishes user session state
+Use this first if you just want to confirm that DNS/ACM/CloudFront/Cognito are wired correctly.
 
-> Note: The initial PoC may use the implicit flow for simplicity. A
-> follow-up step demonstrates migrating to **Authorization Code + PKCE**
-> for best practices.
+- Go to: `smoke/`
+- Run: `./scripts/check-prereqs.sh` then `./scripts/deploy.sh`
+- Upload the smoke files to the bucket (see the folder README)
 
-------------------------------------------------------------------------
+### 2) Smoke test (Authorization Code + PKCE) — best practice for SPAs
 
-## Prerequisites
+This is the recommended OAuth flow for browser-based apps.
 
-This repository provisions a proof-of-concept Single Sign-On (SSO) setup
-using:
+- Go to: `smoke-pkce/`
+- Run: `./scripts/check-prereqs.sh` then `./scripts/deploy.sh`
+- Configure `app.js` from `app.example.js` (see the folder README)
 
-- AWS CloudFormation
-- Amazon Cognito (Hosted UI)
-- Google as a social identity provider
-- S3 + CloudFront for static SPA hosting
+### 3) Polylith re-frame app (PKCE) — the “real” ClojureScript example
 
-Before deploying the CloudFormation stacks, complete the following
-steps.
+This is the full ClojureScript implementation with reusable components.
 
-------------------------------------------------------------------------
+- Go to: `polylith/`
+- Start with: `polylith/README.md`
 
-## 1. AWS Account and Domain
+---
 
-You must have:
+## Important note: don’t deploy both smoke variants to the same domain at once
 
-- An active **AWS account**
-- A **public domain name** registered through AWS (Route 53)
-- A **public Route 53 hosted zone** for that domain
+Both `smoke/` and `smoke-pkce/` assume they own the same DNS + CloudFront alias + Cognito domain config by default.
 
-You will need: - The **Hosted Zone ID** for your domain
-(e.g. `Z123456ABCDEFG`)
+If you switch between them, **destroy the previous stacks first** (instructions are in each README),
+or override `PROJECT_NAME`, `DOMAIN_NAME`, and `COGNITO_DOMAIN_PREFIX`.
 
-Confirm via:
+---
 
-``` bash
-aws route53 list-hosted-zones-by-name --dns-name example.com
-```
+## Repo layout
 
-------------------------------------------------------------------------
+- `smoke/` — implicit-flow smoke test + standalone infra/scripts
+- `smoke-pkce/` — PKCE smoke test + standalone infra/scripts
+- `polylith/` — Polylith workspace for the re-frame PKCE app
 
-## 2. Choose a Subdomain for the PoC
+---
 
-Pick a subdomain for the SSO proof of concept.
+## Security
 
-Example: - `sso-poc.example.com`
+Do not commit `app.js` files that contain your environment-specific values:
 
-This value is used for: - CloudFront distribution - Cognito callback
-URL - Cognito logout URL - Google OAuth redirect URI
+- `smoke/app.js`
+- `smoke-pkce/app.js`
 
-------------------------------------------------------------------------
+Each folder includes `.gitignore` entries and guidance.
 
-## 3. Google OAuth (Social Login) Setup
-
-### 3.1 Create or Select a Google Cloud Project
-
-1. Go to [https://console.cloud.google.com/]
-2. Create a new project or select an existing one
-
-------------------------------------------------------------------------
-
-### 3.2 Configure OAuth Consent Screen
-
-1. APIs & Services → OAuth consent screen
-2. Select **External**
-3. Provide:
-    - App name
-    - Support email
-    - Developer contact email
-4. Save
-
-Verification is not required for this PoC.
-
-------------------------------------------------------------------------
-
-### 3.3 Create OAuth Client Credentials
-
-1. APIs & Services → Credentials
-2. Create Credentials → OAuth client ID
-3. Application type: **Web application**
-4. Authorized redirect URI:
-
-```{=html}
-<!-- -->
-    https://sso-poc.example.com/callback
-```
-
-You will receive: - Client ID - Client Secret
-
-------------------------------------------------------------------------
-
-## 4. Store Google OAuth Credentials in AWS Secrets Manager
-
-Create this **before** deploying CloudFormation.
-
-``` bash
-aws secretsmanager create-secret   --name sso-poc/google-oauth   --description "Google OAuth credentials for Cognito SSO PoC"   --secret-string '{
-    "client_id": "GOOGLE_CLIENT_ID_HERE",
-    "client_secret": "GOOGLE_CLIENT_SECRET_HERE"
-  }'   --region us-east-1
-```
-
-Required structure:
-
-``` json
-{
-  "client_id": "<Google OAuth Client ID>",
-  "client_secret": "<Google OAuth Client Secret>"
-}
-```
-
-------------------------------------------------------------------------
-
-## 5. Tools Required Locally
-
-- AWS CLI v2
-- Permissions to create CloudFormation, Cognito, S3, CloudFront,
-  Route53, ACM
-
-Verify:
-
-``` bash
-aws sts get-caller-identity
-```
-
-------------------------------------------------------------------------
-
-## 6. Region
-
-All infrastructure is deployed to:
-
-```
-
-    us-east-1
-```
-
-This is required for CloudFront + ACM.
-
-------------------------------------------------------------------------
-
-## 7. Required Values Summary
-
-| Value               | Example |
-| ------------------- | -------------------------------- |
-| Hosted Zone ID        | Z123456ABCDEFG |
-| Domain name           | sso-poc.example.com |
-| Google Client ID      | xxxx.apps.googleusercontent.com |
-| Google Client Secret  | \*\*\*\*\*\* |
-| Secrets Manager name  | sso-poc/google-oauth |
-
-------------------------------------------------------------------------
-
-## Helper Scripts
-
-Before deploying, run:
-
-```bash
-./scripts/check-prereqs.sh
-```
-
-This repo includes simple shell scripts to deploy and tear down
-infrastructure.
-
-### Deploy
-
-``` bash
-./scripts/deploy.sh
-```
-
-### Destroy
-
-``` bash
-./scripts/destroy.sh
-```
-
-These scripts assume: - AWS credentials are already configured -
-Required secrets exist in AWS Secrets Manager
+See `SECURITY.md` for additional notes.
