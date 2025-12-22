@@ -1,10 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: SPA hosting on S3+CloudFront with OAC
+Description: SPA hosting on S3+CloudFront + Route53 Alias record (uses CloudFront OAI for widest compatibility)
 
 Parameters:
   ProjectName: { Type: String }
-  DomainName:  { Type: String, Description: "app.example.com" }
-  CertificateArn: { Type: String, Description: "ACM cert in us-east-1" }
+  HostedZoneId: { Type: String, Description: "Route53 hosted zone id for the root domain" }
+  DomainName:  { Type: String, Description: "sso-poc.example.com" }
+  CertificateArn: { Type: String, Description: "ACM cert ARN in us-east-1" }
 
 Resources:
   Bucket:
@@ -17,15 +18,11 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  OAC:
-    Type: AWS::CloudFront::OriginAccessControl
+  OriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
-      Name: !Sub "${ProjectName}-oac"
-      OriginAccessControlConfig:
-        Name: !Sub "${ProjectName}-oac"
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${ProjectName} OAI"
 
   ResponseHeadersPolicy:
     Type: AWS::CloudFront::ResponseHeadersPolicy
@@ -41,9 +38,19 @@ Resources:
             IncludeSubdomains: true
             Preload: true
             Override: true
-          XContentTypeOptions: { Override: true }
-          XFrameOptions: { FrameOption: DENY, Override: true }
-          ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          # Optional (enable later if you want it)
+          # XSSProtection:
+          #   Protection: true
+          #   ModeBlock: true
+          #   Override: true
 
   Distribution:
     Type: AWS::CloudFront::Distribution
@@ -55,15 +62,16 @@ Resources:
         Origins:
           - Id: SpaOrigin
             DomainName: !GetAtt Bucket.RegionalDomainName
-            S3OriginConfig: {}
-            OriginAccessControlId: !GetAtt OAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${OriginAccessIdentity}"
         DefaultCacheBehavior:
           TargetOriginId: SpaOrigin
           ViewerProtocolPolicy: redirect-to-https
           Compress: true
           ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # CachingOptimized
-        ErrorResponses:
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # AWS Managed: CachingOptimized
+        CustomErrorResponses:
+          # SPA routing support
           - ErrorCode: 403
             ResponseCode: 200
             ResponsePagePath: /index.html
@@ -79,17 +87,37 @@ Resources:
     Properties:
       Bucket: !Ref Bucket
       PolicyDocument:
+        Version: "2012-10-17"
         Statement:
-          - Sid: AllowCloudFrontRead
+          - Sid: AllowCloudFrontReadViaOAI
             Effect: Allow
-            Principal: { Service: cloudfront.amazonaws.com }
+            Principal:
+              CanonicalUser: !GetAtt OriginAccessIdentity.S3CanonicalUserId
             Action: s3:GetObject
             Resource: !Sub "${Bucket.Arn}/*"
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+  DnsA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  DnsAAAA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
 
 Outputs:
   BucketName:      { Value: !Ref Bucket }
   DistributionId:  { Value: !Ref Distribution }
+  CloudFrontDomainName: { Value: !GetAtt Distribution.DomainName }
   CloudFrontURL:   { Value: !Sub "https://${DomainName}" }

@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACM certificate for a single PoC subdomain with DNS validation in Route 53 (us-east-1)
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Description: Route 53 hosted zone ID for the root domain (e.g., Z123456ABCDEFG)
+  DomainName:
+    Type: String
+    Description: Fully-qualified domain name for the PoC site (e.g., sso-poc.example.com)
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+Outputs:
+  CertificateArn:
+    Description: ACM certificate ARN (must be in us-east-1 for CloudFront)
+    Value: !Ref Certificate
