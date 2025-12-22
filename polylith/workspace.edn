@@ -1,14 +1,39 @@
 {:top-namespace "aws-login"
+
+ ;; Namespace used for Polylith interfaces (kept even if unused initially)
  :interface-ns "interface"
+
+ ;; Default profile used by `poly` commands when none is specified
  :default-profile-name "default"
- :dialects ["clj"]
- :compact-views #{}
- :vcs {:name "git"
-       :auto-add false}
- :tag-patterns {:stable "^stable-.*"
-                :release "^v[0-9].*"}
+
+ ;; Restrict this workspace to ClojureScript only
+ ;; (important for shadow-cljs based projects)
+ :dialects ["cljs"]
+
+ ;; Versions used by Polylith templates (not runtime dependencies)
+ ;; Useful if you later generate new bricks via `poly create`
  :template-data {:clojure-ver "1.12.3"
                  :shadow-cljs-ver "^3.2.1"}
+
+ ;; Polylith validation behavior
+ ;; Keep this as a warning for learning repos to avoid friction
  :validations {:inconsistent-lib-versions {:type :warning
                                            :exclude []}}
- :projects {"development" {:alias "dev"}}}
+
+ ;; VCS configuration
+ ;; `auto-add false` avoids Polylith auto-committing or tagging
+ :vcs {:name "git"
+       :auto-add false}
+
+ ;; Tag patterns used by `poly info` to determine stability
+ ;; You can adopt these later if you publish releases
+ :tag-patterns {:stable "^stable-.*"
+                :release "^v[0-9].*"}
+
+ ;; Keep views un-opinionated for now
+ :compact-views #{}
+
+ ;; Projects in this workspace
+ ;; These map to folders under `polylith/projects/`
+ :projects {"development" {:alias "dev"}
+            "webapp-pkce"  {:alias "app"}}}

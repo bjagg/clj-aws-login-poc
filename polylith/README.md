@@ -1,42 +1,20 @@
-# Polylith re-frame PKCE Example
+# Polylith (aws-login) — re-frame + PKCE
 
-This folder contains the **Polylith workspace** version of the PoC: a minimal **re-frame** SPA that performs
-**Authorization Code + PKCE** against **Cognito Hosted UI**, then displays decoded claims.
+This folder is the Polylith workspace for the **re-frame PKCE** implementation.
 
-This README is intentionally short for now; we’ll expand it as the app scaffolding comes together.
+## Structure
 
----
+- `components/oauth-pkce` — PKCE + token exchange + token storage
+- `components/app-config` — runtime config from `window.__APP_CONFIG__`
+- `bases/webapp` — minimal re-frame SPA (Login/Logout + claims display)
+- `projects/webapp-pkce` — shadow-cljs build (dev server + release build)
 
-## What lives here
+## Run locally
 
-- `components/` — reusable bricks (PKCE/OAuth, config, JWT helpers, router helpers)
-- `bases/` — the runnable SPA base (re-frame UI + routing)
-- `projects/` — buildable deployables (e.g., `reframe-spa`)
-- `development/` — dev profile/project (REPL/dev tooling)
+```bash
+cd projects/webapp-pkce
+npm install
+npx shadow-cljs watch app
+```
 
----
-
-## Goal state
-
-- `components/oauth-pkce` provides:
-  - start login (build authorize URL w/ PKCE challenge)
-  - handle callback (`?code=...`) + token exchange
-  - logout URL builder
-  - token storage helpers
-
-- `bases/webapp` provides:
-  - a single page with Login/Logout buttons
-  - `/callback` handling
-  - shows “Not logged in” vs decoded claims
-
----
-
-## Next steps (scaffold only)
-
-We’ll add:
-
-1. a minimal `shadow-cljs` setup in the `projects/reframe-spa/` project
-2. a tiny re-frame app in `bases/webapp`
-3. PKCE logic in `components/oauth-pkce` (ported from `smoke-pkce/app.example.js`)
-
-Once the Polylith version works locally, we’ll deploy it using the same AWS stacks you validated in `smoke-pkce/`.
+Open: http://localhost:3000

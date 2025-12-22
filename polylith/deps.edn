@@ -1,9 +1,42 @@
-{:aliases  {:dev {:extra-paths ["development/src"]
+{:paths
+ ["bases/webapp/src"
+  "components/oauth-pkce/src"
+  "components/app-config/src"
+  "bases/webapp/resources"]
 
-                  :extra-deps {org.clojure/clojure {:mvn/version "1.12.2"}}}
+ ;; Top-level dependencies.
+ ;; Note: the actual CLJS build is run via shadow-cljs (npm) in projects/webapp-pkce.
+ ;; These deps primarily support:
+ ;; - Polylith workspace tooling (poly info/check)
+ ;; - editor / clj tooling resolution
+ :deps
+ {org.clojure/clojure       {:mvn/version "1.12.3"}
+  org.clojure/clojurescript {:mvn/version "1.11.132"}
+  reagent/reagent           {:mvn/version "1.2.0"}
+  re-frame/re-frame         {:mvn/version "1.4.3"}}
 
-            :test {:extra-paths []}
+ :aliases
+ {;; Dev-time extra paths. Keep this small and predictable.
+  ;; If you later add dev helpers (logging, mock config, etc.), put them under development/src.
+  :dev
+  {:extra-paths ["development/src"]}
 
-            :poly {:main-opts ["-m" "polylith.clj.core.poly-cli.core"]
-                   :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
-                   :extra-deps {polylith/clj-poly {:mvn/version "0.3.31"}}}}}
+  ;; Test-time extra paths and deps.
+  ;; Empty for now since we’re not adding cljs.test or kaocha yet.
+  :test
+  {:extra-paths []
+   :extra-deps {}}
+
+  ;; Optional: run Polylith via clj instead of installing the `poly` CLI.
+  ;; You said you don’t plan to use it, but keeping it helps contributors.
+  ;; Usage:
+  ;;   clj -M:poly info
+  ;;   clj -M:poly check
+  :poly
+  {:main-opts ["-m" "polylith.clj.core.poly-cli.core"]
+
+   ;; Some environments need this due to JDK/native access warnings.
+   ;; Keep it if you see warnings; remove if you prefer.
+   :jvm-opts ["--enable-native-access=ALL-UNNAMED"]
+
+   :extra-deps {polylith/clj-poly {:mvn/version "0.3.31"}}}}}
