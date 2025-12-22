@@ -1,4 +1,4 @@
-# Smoke Test (Hosted UI + Google SSO)
+# Smoke Test (Hosted UI + Google SSO — Implicit Flow)
 
 This directory contains a tiny static SPA used to validate:
 
@@ -19,41 +19,37 @@ It is intentionally framework-free so you can confirm infrastructure works befor
 
 ---
 
-## Setup
+## Deploy Infrastructure
 
-### 1) Copy the template
+> If you previously deployed another variant, explicitly set the project name first.
 
 ```bash
-cp smoke/app.example.js smoke/app.js
+export PROJECT_NAME=sso-poc-smoke
+./scripts/check-prereqs.sh
+./scripts/deploy.sh
 ```
 
 ---
 
-### 2) Fill in placeholders in `smoke/app.js`
+## Configure the Smoke App
 
-Replace the following values:
+### 1) Copy the template
 
-- `__HOSTED_UI__`  
-  (CloudFormation output: `HostedUiDomain`)
-- `__CLIENT_ID__`  
-  (CloudFormation output: `UserPoolClientId`)
-- Confirm:
-  - `redirectUri`
-  - `logoutUri`
+```bash
+cp app.example.js app.js
+```
 
-These must match your deployed domain exactly.
-
-You can fetch the required values with:
+### 2) Fetch values from CloudFormation
 
 ```bash
 HOSTED_UI=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-cognito \
+  --stack-name ${PROJECT_NAME}-cognito \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='HostedUiDomain'].OutputValue" \
   --output text)
 
 CLIENT_ID=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-cognito \
+  --stack-name ${PROJECT_NAME}-cognito \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
   --output text)
@@ -62,26 +58,20 @@ echo $HOSTED_UI
 echo $CLIENT_ID
 ```
 
-> If you changed `PROJECT_NAME`, substitute it in the stack name above.
-
----
-
-### 3) Deploy infra (optional if already deployed)
-
-From this directory:
+### 3) Apply values to `app.js`
 
 ```bash
-./scripts/check-prereqs.sh
-./scripts/deploy.sh
+sed -i '' "s|__HOSTED_UI__|$HOSTED_UI|g" app.js
+sed -i '' "s|__CLIENT_ID__|$CLIENT_ID|g" app.js
 ```
 
 ---
 
-### 4) Upload the smoke test to S3
+## Upload to S3 and Invalidate CloudFront
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-site \
+  --stack-name ${PROJECT_NAME}-site \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" \
   --output text)
@@ -89,25 +79,19 @@ BUCKET=$(aws cloudformation describe-stacks \
 aws s3 sync . "s3://$BUCKET/" --exclude "infra/*" --exclude "scripts/*" --delete
 ```
 
----
-
-### 5) Invalidate CloudFront (recommended after updates)
-
 ```bash
 DIST=$(aws cloudformation describe-stacks \
-  --stack-name sso-poc-smoke-site \
+  --stack-name ${PROJECT_NAME}-site \
   --region us-east-1 \
   --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
   --output text)
 
-aws cloudfront create-invalidation \
-  --distribution-id "$DIST" \
-  --paths "/*"
+aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
 ```
 
 ---
 
-### 6) Test in browser
+## Test
 
 Open:
 
@@ -121,8 +105,8 @@ Click **Login with Google**. After login, decoded JWT claims should appear on th
 
 ## Notes
 
-- This smoke test currently uses **implicit flow** (`response_type=token`) for simplicity.
-- In the PKCE section of this repo, the flow is upgraded to **Authorization Code + PKCE** and implicit flow is removed.
+- This smoke test uses the **implicit flow** (`response_type=token`) for simplicity.
+- The PKCE variant removes implicit flow entirely and uses Authorization Code + PKCE.
 
 ---
 
@@ -139,6 +123,7 @@ unless you intentionally change the domain name and stack parameters.
 From the other directory:
 
 ```bash
+export PROJECT_NAME=<that-project-name>
 ./scripts/destroy.sh
 ```
 
@@ -153,3 +138,4 @@ If you want to run both variants simultaneously, override at least:
 - `COGNITO_DOMAIN_PREFIX`
 
 for one of the variants so their AWS resources do not collide.
+
