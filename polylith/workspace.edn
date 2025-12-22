@@ -1,7 +1,8 @@
 {:top-namespace "aws-login"
 
  ;; Namespace used for Polylith interfaces (kept even if unused initially)
- :interface-ns "interface"
+ ;; Changed from default of "interface" to avoid JavaScript reserved word
+ :interface-ns "api"
 
  ;; Default profile used by `poly` commands when none is specified
  :default-profile-name "default"
