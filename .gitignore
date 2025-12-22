@@ -13,3 +13,7 @@ pom.xml.asc
 .nrepl-port
 .cpcache/
 .DS_store
+node_modules/
+.shadow-cljs/
+*.log
+.env*
