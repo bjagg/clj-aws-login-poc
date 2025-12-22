@@ -19,3 +19,5 @@ node_modules/
 .env*
 # Smoke test local config (do not commit)
 smoke/app.js
+.clj-kondo
+.lsp
