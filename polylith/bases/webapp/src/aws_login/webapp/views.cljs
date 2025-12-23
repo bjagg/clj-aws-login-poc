@@ -21,13 +21,10 @@
       [:li [:strong "Logged in: "] (if logged-in? "yes" "no")]
       [:li [:strong "Status: "] (name (or status :unknown))]
       [:li [:strong "Has refresh token: "] (if has-refresh? "yes" "no")]
-      [:li [:strong "Access token exp: "]
-       (if exp (str exp) "n/a")]
-      [:li [:strong "Access expires in (sec): "]
-       (if (number? expires-in) (str expires-in) "n/a")]]
+      [:li [:strong "Access token exp: "] (if exp (str exp) "n/a")]
+      [:li [:strong "Access expires in (sec): "] (if (number? expires-in) (str expires-in) "n/a")]]
      (when err
        [:p [:strong "Error: "] err])
-
      [:div
       (when logged-in?
         [:button {:on-click #(rf/dispatch [:auth/refresh-now])}
@@ -40,25 +37,39 @@
         js-claims (jwt/decode-jwt-payload id-token)]
     [:div
      [:h3 "ID token claims"]
-     [:pre
-      (if js-claims
-        (pretty-json js-claims)
-        "Not logged in.")]]))
+     [:pre (if js-claims (pretty-json js-claims) "Not logged in.")]]))
 
-(defn main []
+(defn nav []
+  (let [page @(rf/subscribe [:route/page])]
+    [:div
+     [:a {:href "#/" :style {:margin-right "12px"}}
+      (if (= page :home) "Home" "Home")]
+     [:a {:href "#/claims"} "Claims (guarded)"]]))
+
+(defn home-page []
   (let [logged-in? @(rf/subscribe [:auth/logged-in?])
         status @(rf/subscribe [:auth/status])]
     [:div
      [:h2 "AWS Cognito + Google (PKCE) — re-frame PoC"]
-
      (when (= status :exchanging)
        [:p "Completing sign-in..."])
-
      [:div
       (when-not logged-in?
-        [:button {:on-click #(rf/dispatch [:auth/login-clicked])} "Login with Google"])
+        [:button {:on-click #(rf/dispatch [:auth/login-clicked])} "Login"])
       (when logged-in?
         [:button {:on-click #(rf/dispatch [:auth/logout-clicked])} "Logout"])]
+     [session-panel]]))
 
-     [session-panel]
-     [claims-panel]]))
+(defn claims-page []
+  [:div
+   [:h2 "Claims"]
+   [claims-panel]])
+
+(defn main []
+  (let [page @(rf/subscribe [:route/page])]
+    [:div
+     [nav]
+     (case page
+       :claims [claims-page]
+       ;; default
+       [home-page])]))

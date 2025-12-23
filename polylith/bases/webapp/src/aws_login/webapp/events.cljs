@@ -24,6 +24,10 @@
   (when-let [exp (jwt-exp-seconds jwt-token)]
     (<= (- exp (now-seconds)) skew)))
 
+(defn- logged-in? [db]
+  (let [id (get-in db [:auth :id-token])]
+    (boolean (and id (not= id "")))))
+
 ;; ---------------------------------------------------------------------------
 ;; App init
 ;; ---------------------------------------------------------------------------
@@ -35,6 +39,7 @@
          at (pkce/read-access-token)
          rt (pkce/read-refresh-token)]
      {:cfg (cfg/get-config)
+      :route {:page :home :path "/" :pathname (routes/pathname)}
       :auth {:id-token id
              :access-token at
              :refresh-token rt
@@ -59,6 +64,38 @@
      (when rt
        {:db (assoc-in db [:auth :status] :refreshing)
         :fx [[:oauth/refresh-tokens {:cfg (:cfg db) :refresh-token rt}]]}))))
+
+;; ---------------------------------------------------------------------------
+;; Routing (no routing library)
+;; ---------------------------------------------------------------------------
+
+(rf/reg-event-fx
+ :route/changed
+ (fn [{:keys [db]} [_ route]]
+   (let [page (:page route)]
+     (cond
+       ;; /callback is handled by :oauth/handle-callback (triggered from core)
+       (= page :callback)
+       {:db (assoc db :route route)}
+
+       ;; Guard the claims page (requires login)
+       (= page :claims)
+       (if (logged-in? db)
+         {:db (assoc db :route route)}
+         (do
+           (routes/navigate! "/")
+           {:db (-> db
+                    (assoc :route (assoc route :page :home :path "/"))
+                    (assoc-in [:auth :error] "Please log in to view claims."))}))
+
+       :else
+       {:db (assoc db :route route)}))))
+
+(rf/reg-event-fx
+ :route/nav
+ (fn [{:keys [db]} [_ path]]
+   (routes/navigate! path)
+   {}))
 
 ;; ---------------------------------------------------------------------------
 ;; Login / Logout
@@ -111,11 +148,13 @@
        (.then (fn [tokens]
                 (let [id (aget tokens "id_token")
                       at (aget tokens "access_token")
-                      rt (aget tokens "refresh_token")] ; may be nil
+                      rt (aget tokens "refresh_token")] ; present for initial exchange
                   (pkce/store-tokens! {:id-token id :access-token at :refresh-token rt})
                   (pkce/clear-verifier!)
+                  ;; Return to SPA home (hash routing)
                   (routes/replace-state! "/")
-                  (rf/dispatch [:auth/tokens-updated id at (or rt (pkce/read-refresh-token))]))))
+                  (routes/navigate! "/")
+                  (rf/dispatch [:auth/tokens-updated id at rt]))))
        (.catch (fn [e]
                  (rf/dispatch [:auth/error (or (.-message e) (str e))]))))))
 

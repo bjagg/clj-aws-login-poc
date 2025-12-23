@@ -76,3 +76,10 @@ See: `docs/refresh-tokens.md`
 ## Production note
 
 For production, prefer a BFF/Lambda approach to keep refresh tokens out of browser storage.
+
+---
+
+## More documentation
+
+- [Routing (no dependencies)](docs/routing.md)
+- [Routing + OAuth flow](docs/routing-diagram.md)

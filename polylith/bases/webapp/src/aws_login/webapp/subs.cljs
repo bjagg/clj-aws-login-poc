@@ -4,6 +4,13 @@
 
 (rf/reg-sub :cfg (fn [db _] (:cfg db)))
 
+;; --- routing ---------------------------------------------------------------
+
+(rf/reg-sub :route/page (fn [db _] (get-in db [:route :page] :home)))
+(rf/reg-sub :route/path (fn [db _] (get-in db [:route :path] "/")))
+
+;; --- auth ------------------------------------------------------------------
+
 (rf/reg-sub :auth/id-token (fn [db _] (get-in db [:auth :id-token])))
 (rf/reg-sub :auth/access-token (fn [db _] (get-in db [:auth :access-token])))
 (rf/reg-sub :auth/refresh-token (fn [db _] (get-in db [:auth :refresh-token])))
