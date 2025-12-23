@@ -15,7 +15,6 @@ This repo implements a **simple refresh-on-demand** approach for learning purpos
   - Manual button: **Force refresh**
 
 ### Security warning
-
 Storing refresh tokens in any JS-accessible storage (localStorage/sessionStorage) increases exposure to **XSS**.
 
 This is acceptable for a tutorial/PoC, but not ideal for production.
@@ -74,7 +73,7 @@ sequenceDiagram
   F->>T: POST /oauth2/token (authorization_code)
   T-->>F: tokens (incl refresh_token)
   F->>D: Store refresh_token keyed by session id
-  F-->>B: "Set-Cookie: session=...; HttpOnly; Secure"
+  Note over F,B: Set-Cookie session=... (HttpOnly, Secure, SameSite)
   B->>F: POST /session/tokens (cookie)
   F->>T: POST /oauth2/token (refresh_token)
   T-->>F: new access_token
