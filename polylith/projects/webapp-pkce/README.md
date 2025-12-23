@@ -17,6 +17,17 @@ This project is a **complete, deployable re-frame SPA** using:
 - Node.js + npm
 - Clojure CLI
 
+### Optional: use a `.env` file
+
+You may define all required environment variables in a `.env` file:
+
+```bash
+cp .env.example .env
+```
+The deployment scripts will automatically load .env if present.
+
+The .env file is ignored by git.
+
 ---
 
 ## ⚠️ Infrastructure warning (READ THIS)
@@ -27,6 +38,11 @@ This project creates **real AWS resources**:
 - CloudFront distribution
 - Cognito User Pool + App Client + Domain
 
+> [!IMPORTANT]
+> Changing values in `.env` (especially `PROJECT_NAME`,
+> `COGNITO_DOMAIN_PREFIX`, or domain settings) may require tearing down
+> existing stacks before redeploying.
+
 Before deploying:
 
 1. Pick a unique project name:
@@ -36,12 +52,15 @@ Before deploying:
    ```
 
 2. If you have ever deployed this before:
+
    ```bash
    ./scripts/destroy.sh
    ```
+
    - You may need to **empty the S3 bucket manually** if deletion fails.
 
-3. Never reuse a `PROJECT_NAME` from another environment.
+> [!WARNING]
+> Never reuse a `PROJECT_NAME` from another environment.
 
 ---
 

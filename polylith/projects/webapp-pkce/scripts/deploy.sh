@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load shared environment (optional .env support)
+source "$(dirname "$0")/env.sh"
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -9,7 +12,7 @@ export AWS_REGION=${AWS_REGION:-us-east-1}
 # Defaults (override by exporting env vars before running)
 : "${HOSTED_ZONE_ID:=Z05863342TZ6JN82178DO}"
 : "${DOMAIN_NAME:=sso-poc.rpgsecrets.net}"
-: "${PROJECT_NAME:=sso-poc-pkce}"
+: "${PROJECT_NAME:=aws-login-pkce-demo}"
 : "${GOOGLE_SECRET_NAME:=sso-poc/google-oauth}"
 : "${COGNITO_DOMAIN_PREFIX:=rpgsecrets-sso-poc}"
 
