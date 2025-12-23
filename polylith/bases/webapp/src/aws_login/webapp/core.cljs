@@ -11,10 +11,11 @@
 (defn ^:private mount-root []
   (rdom/render [views/main] (.getElementById js/document "app")))
 
-(defn init []
+(defn ^:export init []
+  ;; Initialize app-db (loads config + tokens from storage)
   (rf/dispatch-sync [:app/init])
 
-  ;; If we are on /callback, handle it immediately.
+  ;; If we are on /callback, handle the OAuth redirect immediately.
   (when (= (routes/page) :callback)
     (rf/dispatch [:oauth/handle-callback]))
 
@@ -23,7 +24,7 @@
           (routes/start! (fn [route]
                            (rf/dispatch [:route/changed route]))))
 
-  ;; Best-effort refresh (if access token expires soon and refresh token exists)
+  ;; Best-effort refresh (only if access token is expiring soon AND refresh token exists)
   (rf/dispatch [:auth/ensure-fresh])
 
   (mount-root))
