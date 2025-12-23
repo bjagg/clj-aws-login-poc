@@ -27,4 +27,11 @@ set +o allexport
 : "${AWS_REGION:?AWS_REGION must be set}"
 : "${HOSTED_ZONE_ID:?HOSTED_ZONE_ID must be set}"
 : "${DOMAIN_NAME:?DOMAIN_NAME must be set}"
-: "${SUBDOMAIN:?SUBDOMAIN must be set}"
+: "${COGNITO_DOMAIN_PREFIX:?COGNITO_DOMAIN_PREFIX must be set}"
+: "${GOOGLE_SECRET_NAME:?GOOGLE_SECRET_NAME must be set}"
+
+# ------------------------------------------------------------------------------
+# Local dev defaults (safe to override in .env)
+# ------------------------------------------------------------------------------
+: "${LOCAL_REDIRECT_URI:=http://localhost:3000/callback}"
+: "${LOCAL_LOGOUT_URI:=http://localhost:3000/}"

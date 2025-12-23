@@ -1,57 +1,100 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Cognito UserPool + Hosted UI + Google IdP (secrets from Secrets Manager)
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cognito UserPool + Hosted UI + Google IdP (PKCE-ready) for the Polylith re-frame project
 
 Parameters:
-  ProjectName: { Type: String }
-  CallbackURL: { Type: String }
-  LogoutURL:   { Type: String }
-  DomainPrefix: { Type: String, Description: "Cognito domain prefix (Hosted UI domain)" }
+  ProjectName:
+    Type: String
+    Description: "Short name used to prefix resources (e.g., aws-login)"
+
+  # Support both localhost and production callback/logout URLs in a single stack.
+  CallbackURLs:
+    Type: CommaDelimitedList
+    Description: "Allowed callback URLs (include /callback). Example: http://localhost:3000/callback,https://app.example.com/callback"
+
+  LogoutURLs:
+    Type: CommaDelimitedList
+    Description: "Allowed logout URLs (include trailing /). Example: http://localhost:3000/,https://app.example.com/"
+
+  DomainPrefix:
+    Type: String
+    Description: "Cognito Hosted UI domain prefix (must be globally unique per region/account)."
+
+  # Best-practice for shareable repos: store Google OAuth creds in Secrets Manager.
+  #
+  # Secret JSON example:
+  #   {
+  #     "clientId": "....apps.googleusercontent.com",
+  #     "clientSecret": "..."
+  #   }
   GoogleSecretName:
     Type: String
-    Description: Secrets Manager secret name containing JSON keys client_id and client_secret (e.g., sso-poc/google-oauth)
+    Description: "AWS Secrets Manager secret name containing Google OAuth clientId/clientSecret JSON."
 
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub "${ProjectName}-pool"
-      AutoVerifiedAttributes: [ email ]
-      Schema:
-        - Name: email
-          Required: true
-          AttributeDataType: String
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
 
   GoogleProvider:
     Type: AWS::Cognito::UserPoolIdentityProvider
     Properties:
+      UserPoolId: !Ref UserPool
       ProviderName: Google
       ProviderType: Google
-      UserPoolId: !Ref UserPool
-      AttributeMapping: { email: email }
+      AttributeMapping:
+        email: email
+        given_name: given_name
+        family_name: family_name
       ProviderDetails:
-        client_id: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_id}}"
-        client_secret: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_secret}}"
+        client_id: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:clientId}}"
+        client_secret: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:clientSecret}}"
+
+        # IMPORTANT:
+        # Google does NOT support an "offline_access" scope value.
+        # Cognito will request whatever scopes you set here from Google.
         authorize_scopes: "openid email profile"
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     DependsOn: GoogleProvider
     Properties:
-      ClientName: !Sub "${ProjectName}-spa"
       UserPoolId: !Ref UserPool
+      ClientName: !Sub "${ProjectName}-client"
+
+      # Public SPA client (no client secret)
       GenerateSecret: false
+
+      # Hosted UI settings (PKCE-friendly)
       AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]              # Authorization Code Flow only
+      AllowedOAuthScopes: [openid, email, profile]
 
-      # PKCE-friendly (SPA best practice): Authorization Code Flow only.
-      # Note: PKCE itself is performed by the SPA at runtime; Cognito does not store a "PKCE flag" here.
-      AllowedOAuthFlows: [ code ]
-      AllowedOAuthScopes: [ openid, email, profile ]
+      CallbackURLs: !Ref CallbackURLs
+      LogoutURLs:   !Ref LogoutURLs
+      SupportedIdentityProviders: [COGNITO, Google]
 
-      CallbackURLs: [ !Ref CallbackURL ]
-      LogoutURLs:   [ !Ref LogoutURL ]
-      SupportedIdentityProviders: [ COGNITO, Google ]
-      PreventUserExistenceErrors: ENABLED
+      # Token validity defaults (tweak to taste)
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 7
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+      # Good defaults
       EnableTokenRevocation: true
+      PreventUserExistenceErrors: ENABLED
 
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -60,6 +103,15 @@ Resources:
       UserPoolId: !Ref UserPool
 
 Outputs:
-  UserPoolId:     { Value: !Ref UserPool }
-  UserPoolClientId: { Value: !Ref UserPoolClient }
-  HostedUiDomain: { Value: !Sub "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com" }
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${ProjectName}-UserPoolId"
+
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${ProjectName}-UserPoolClientId"
+
+  HostedUiDomain:
+    Value: !Sub "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com"

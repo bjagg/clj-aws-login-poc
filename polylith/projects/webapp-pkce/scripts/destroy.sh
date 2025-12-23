@@ -10,7 +10,7 @@ cd "$ROOT_DIR"
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 
 # Defaults (override by exporting env vars before running)
-: "${PROJECT_NAME:=sso-poc-pkce}"
+: "${PROJECT_NAME:=aws-login-pkce-demo}"
 
 echo "Destroying stacks for PROJECT_NAME=${PROJECT_NAME} in region $AWS_REGION"
 echo "  1) ${PROJECT_NAME}-cognito"

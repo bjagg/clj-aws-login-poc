@@ -15,6 +15,8 @@ export AWS_REGION=${AWS_REGION:-us-east-1}
 : "${PROJECT_NAME:=aws-login-pkce-demo}"
 : "${GOOGLE_SECRET_NAME:=sso-poc/google-oauth}"
 : "${COGNITO_DOMAIN_PREFIX:=rpgsecrets-sso-poc}"
+: "${LOCAL_REDIRECT_URI:=http://localhost:3000/callback}"
+: "${LOCAL_LOGOUT_URI:=http://localhost:3000/}"
 
 echo "Deploying ACM certificate stack..."
 aws cloudformation deploy \
@@ -81,8 +83,8 @@ aws cloudformation deploy \
   --template-file infra/cfn/cognito.yml \
   --parameter-overrides \
     ProjectName="${PROJECT_NAME}" \
-    CallbackURL="https://${DOMAIN_NAME}/callback" \
-    LogoutURL="https://${DOMAIN_NAME}/" \
+    CallbackURLs="${LOCAL_REDIRECT_URI},https://${DOMAIN_NAME}/callback" \
+    LogoutURLs="${LOCAL_LOGOUT_URI},https://${DOMAIN_NAME}/" \
     DomainPrefix="${COGNITO_DOMAIN_PREFIX}" \
     GoogleSecretName="${GOOGLE_SECRET_NAME}" \
   --region "${AWS_REGION}"
