@@ -4,5 +4,5 @@ window.__APP_CONFIG__ = {
   clientId: "__CLIENT_ID__",      // Cognito app client id
   redirectUri: "https://sso-poc.rpgsecrets.net/callback",
   logoutUri: "https://sso-poc.rpgsecrets.net/",
-  scopes: "openid email profile"
+  scopes: "openid email profile offline_access"
 };

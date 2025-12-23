@@ -8,6 +8,7 @@
 
 (defn ^:export init []
   (rf/dispatch-sync [:app/init])
+  (rf/dispatch [:auth/ensure-fresh])
   (when (= (routes/init!) :callback)
     (rf/dispatch [:oauth/handle-callback]))
   (rdom/render [views/main] (.getElementById js/document "app")))

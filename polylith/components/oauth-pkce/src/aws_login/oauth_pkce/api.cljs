@@ -4,13 +4,19 @@
   (:require [aws-login.oauth-pkce.impl :as impl]
             [aws-login.oauth-pkce.oauth-storage :as store]))
 
+;; --- Auth flows -------------------------------------------------------------
+
 (defn start-login! [cfg] (impl/start-login! cfg))
 (defn exchange-code! [cfg code] (impl/exchange-code! cfg code))
+(defn refresh-tokens! [cfg refresh-token] (impl/refresh-tokens! cfg refresh-token))
 (defn logout-url [cfg] (impl/logout-url cfg))
 
-;; storage helpers that callers may want
+;; --- Storage helpers --------------------------------------------------------
+
 (defn read-id-token [] (store/read-id-token))
 (defn read-access-token [] (store/read-access-token))
+(defn read-refresh-token [] (store/read-refresh-token))
+
 (defn store-tokens! [m] (store/store-tokens! m))
 (defn clear-tokens! [] (store/clear-tokens!))
 (defn clear-verifier! [] (store/clear-verifier!))

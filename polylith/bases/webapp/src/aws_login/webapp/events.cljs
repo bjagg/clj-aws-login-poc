@@ -2,17 +2,62 @@
   (:require [re-frame.core :as rf]
             [aws-login.app-config.api :as cfg]
             [aws-login.oauth-pkce.api :as pkce]
-            [aws-login.oauth-pkce.oauth-storage :as store]
+            [aws-login.webapp.jwt :as jwt]
             [aws-login.webapp.routes :as routes]))
+
+;; ---------------------------------------------------------------------------
+;; Token lifetime helpers
+;; ---------------------------------------------------------------------------
+
+(defn- now-seconds [] (js/Math.floor (/ (.now js/Date) 1000)))
+
+(defn- jwt-exp-seconds
+  "Returns exp (seconds since epoch) from a JWT, or nil."
+  [jwt-token]
+  (when-let [p (jwt/decode-jwt-payload jwt-token)]
+    (let [exp (aget p "exp")]
+      (when (number? exp) exp))))
+
+(defn- expiring-soon?
+  "True if exp is within `skew` seconds from now."
+  [jwt-token skew]
+  (when-let [exp (jwt-exp-seconds jwt-token)]
+    (<= (- exp (now-seconds)) skew)))
+
+;; ---------------------------------------------------------------------------
+;; App init
+;; ---------------------------------------------------------------------------
 
 (rf/reg-event-db
  :app/init
  (fn [_ _]
-   {:cfg (cfg/get-config)
-    :auth {:id-token (store/read-id-token)
-           :access-token (store/read-access-token)
-           :status :idle
-           :error nil}}))
+   (let [id (pkce/read-id-token)
+         at (pkce/read-access-token)
+         rt (pkce/read-refresh-token)]
+     {:cfg (cfg/get-config)
+      :auth {:id-token id
+             :access-token at
+             :refresh-token rt
+             :status :idle
+             :error nil}})))
+
+;; Call this after app/init (or whenever before making API calls)
+(rf/reg-event-fx
+ :auth/ensure-fresh
+ (fn [{:keys [db]} _]
+   (let [at (get-in db [:auth :access-token])
+         rt (get-in db [:auth :refresh-token])]
+     (cond
+       (and at rt (expiring-soon? at 60))
+       {:db (assoc-in db [:auth :status] :refreshing)
+        :fx [[:oauth/refresh-tokens {:cfg (:cfg db) :refresh-token rt}]]}
+
+       :else
+       {}))))
+
+;; ---------------------------------------------------------------------------
+;; Login / Logout
+;; ---------------------------------------------------------------------------
 
 (rf/reg-event-fx
  :auth/login-clicked
@@ -23,9 +68,13 @@
 (rf/reg-event-fx
  :auth/logout-clicked
  (fn [{:keys [db]} _]
-   (store/clear-tokens!)
+   (pkce/clear-tokens!)
    (set! (.-location js/window) (pkce/logout-url (:cfg db)))
    {}))
+
+;; ---------------------------------------------------------------------------
+;; Callback handling
+;; ---------------------------------------------------------------------------
 
 (rf/reg-event-fx
  :oauth/handle-callback
@@ -56,20 +105,46 @@
    (-> (pkce/exchange-code! cfg code)
        (.then (fn [tokens]
                 (let [id (aget tokens "id_token")
-                      at (aget tokens "access_token")]
-                  (store/store-tokens! {:id-token id :access-token at})
-                  (store/clear-verifier!)
+                      at (aget tokens "access_token")
+                      rt (aget tokens "refresh_token")] ; may be nil
+                  (pkce/store-tokens! {:id-token id :access-token at :refresh-token rt})
+                  (pkce/clear-verifier!)
                   (routes/replace-state! "/")
-                  (rf/dispatch [:auth/tokens-updated id at]))))
+                  (rf/dispatch [:auth/tokens-updated id at rt]))))
        (.catch (fn [e]
                  (rf/dispatch [:auth/error (or (.-message e) (str e))]))))))
 
+;; ---------------------------------------------------------------------------
+;; Refresh flow
+;; ---------------------------------------------------------------------------
+
+(rf/reg-fx
+ :oauth/refresh-tokens
+ (fn [{:keys [cfg refresh-token]}]
+   (-> (pkce/refresh-tokens! cfg refresh-token)
+       (.then (fn [tokens]
+                ;; Cognito typically returns a new access_token (and maybe id_token).
+                ;; refresh_token is usually NOT returned on refresh grant.
+                (let [id (or (aget tokens "id_token") (pkce/read-id-token))
+                      at (or (aget tokens "access_token") (pkce/read-access-token))]
+                  (pkce/store-tokens! {:id-token id :access-token at})
+                  (rf/dispatch [:auth/tokens-updated id at refresh-token]))))
+       (.catch (fn [e]
+                 ;; If refresh fails, clear and treat as logged out.
+                 (pkce/clear-tokens!)
+                 (rf/dispatch [:auth/error (str "Refresh failed: " (or (.-message e) (str e)))]))))))
+
+;; ---------------------------------------------------------------------------
+;; State updates
+;; ---------------------------------------------------------------------------
+
 (rf/reg-event-db
  :auth/tokens-updated
- (fn [db [_ id access]]
+ (fn [db [_ id access refresh]]
    (-> db
        (assoc-in [:auth :id-token] id)
        (assoc-in [:auth :access-token] access)
+       (assoc-in [:auth :refresh-token] refresh)
        (assoc-in [:auth :status] :idle))))
 
 (rf/reg-event-db

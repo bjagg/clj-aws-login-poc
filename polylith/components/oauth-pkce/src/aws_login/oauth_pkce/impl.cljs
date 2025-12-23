@@ -81,3 +81,23 @@
                          (.then (fn [t]
                                   (throw (js/Error.
                                           (str "Token exchange failed (" (.-status resp) "):\n" t)))))))))))))
+
+(defn refresh-tokens!
+  "Refreshes tokens using the stored refresh token.
+       Returns a JS Promise of the token JSON."
+  [{:keys [cognito-domain client-id]} refresh-token]
+  (let [body (doto (js/URLSearchParams.)
+               (.set "grant_type" "refresh_token")
+               (.set "client_id" client-id)
+               (.set "refresh_token" refresh-token))]
+    (-> (js/fetch (str cognito-domain "/oauth2/token")
+                  #js {:method "POST"
+                       :headers #js {"Content-Type" "application/x-www-form-urlencoded"}
+                       :body (.toString body)})
+        (.then (fn [resp]
+                 (if (.-ok resp)
+                   (.json resp)
+                   (-> (.text resp)
+                       (.then (fn [t]
+                                (throw (js/Error.
+                                        (str "Token refresh failed (" (.-status resp) "):\n" t))))))))))))
