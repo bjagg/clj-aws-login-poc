@@ -74,7 +74,7 @@ sequenceDiagram
   F->>T: POST /oauth2/token (authorization_code)
   T-->>F: tokens (incl refresh_token)
   F->>D: Store refresh_token keyed by session id
-  F-->>B: Set-Cookie: session=...; HttpOnly; Secure
+  F-->>B: "Set-Cookie: session=...; HttpOnly; Secure"
   B->>F: POST /session/tokens (cookie)
   F->>T: POST /oauth2/token (refresh_token)
   T-->>F: new access_token
