@@ -41,19 +41,24 @@
              :status :idle
              :error nil}})))
 
-;; Call this after app/init (or whenever before making API calls)
+;; Call this after app/init (and before protected API calls).
 (rf/reg-event-fx
  :auth/ensure-fresh
  (fn [{:keys [db]} _]
    (let [at (get-in db [:auth :access-token])
          rt (get-in db [:auth :refresh-token])]
-     (cond
-       (and at rt (expiring-soon? at 60))
+     (when (and at rt (expiring-soon? at 60))
        {:db (assoc-in db [:auth :status] :refreshing)
-        :fx [[:oauth/refresh-tokens {:cfg (:cfg db) :refresh-token rt}]]}
+        :fx [[:oauth/refresh-tokens {:cfg (:cfg db) :refresh-token rt}]]}))))
 
-       :else
-       {}))))
+;; Manual refresh button (for learning/debugging)
+(rf/reg-event-fx
+ :auth/refresh-now
+ (fn [{:keys [db]} _]
+   (let [rt (get-in db [:auth :refresh-token])]
+     (when rt
+       {:db (assoc-in db [:auth :status] :refreshing)
+        :fx [[:oauth/refresh-tokens {:cfg (:cfg db) :refresh-token rt}]]}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Login / Logout
@@ -110,7 +115,7 @@
                   (pkce/store-tokens! {:id-token id :access-token at :refresh-token rt})
                   (pkce/clear-verifier!)
                   (routes/replace-state! "/")
-                  (rf/dispatch [:auth/tokens-updated id at rt]))))
+                  (rf/dispatch [:auth/tokens-updated id at (or rt (pkce/read-refresh-token))]))))
        (.catch (fn [e]
                  (rf/dispatch [:auth/error (or (.-message e) (str e))]))))))
 
@@ -123,14 +128,14 @@
  (fn [{:keys [cfg refresh-token]}]
    (-> (pkce/refresh-tokens! cfg refresh-token)
        (.then (fn [tokens]
-                ;; Cognito typically returns a new access_token (and maybe id_token).
-                ;; refresh_token is usually NOT returned on refresh grant.
+                ;; Cognito returns a new access_token (and sometimes id_token).
+                ;; refresh_token is usually NOT returned on refresh grant unless rotation is enabled.
                 (let [id (or (aget tokens "id_token") (pkce/read-id-token))
-                      at (or (aget tokens "access_token") (pkce/read-access-token))]
-                  (pkce/store-tokens! {:id-token id :access-token at})
-                  (rf/dispatch [:auth/tokens-updated id at refresh-token]))))
+                      at (or (aget tokens "access_token") (pkce/read-access-token))
+                      rt (or (aget tokens "refresh_token") refresh-token)]
+                  (pkce/store-tokens! {:id-token id :access-token at :refresh-token rt})
+                  (rf/dispatch [:auth/tokens-updated id at rt]))))
        (.catch (fn [e]
-                 ;; If refresh fails, clear and treat as logged out.
                  (pkce/clear-tokens!)
                  (rf/dispatch [:auth/error (str "Refresh failed: " (or (.-message e) (str e)))]))))))
 

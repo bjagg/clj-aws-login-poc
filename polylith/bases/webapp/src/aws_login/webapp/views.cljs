@@ -2,36 +2,63 @@
   (:require [re-frame.core :as rf]
             [aws-login.webapp.jwt :as jwt]))
 
+(defn- pretty-json [x]
+  (try
+    (.stringify js/JSON x nil 2)
+    (catch :default _
+      (str x))))
+
+(defn session-panel []
+  (let [logged-in? @(rf/subscribe [:auth/logged-in?])
+        has-refresh? @(rf/subscribe [:auth/has-refresh?])
+        status @(rf/subscribe [:auth/status])
+        err @(rf/subscribe [:auth/error])
+        exp @(rf/subscribe [:auth/access-exp])
+        expires-in @(rf/subscribe [:auth/access-expires-in])]
+    [:div
+     [:h3 "Session"]
+     [:ul
+      [:li [:strong "Logged in: "] (if logged-in? "yes" "no")]
+      [:li [:strong "Status: "] (name (or status :unknown))]
+      [:li [:strong "Has refresh token: "] (if has-refresh? "yes" "no")]
+      [:li [:strong "Access token exp: "]
+       (if exp (str exp) "n/a")]
+      [:li [:strong "Access expires in (sec): "]
+       (if (number? expires-in) (str expires-in) "n/a")]]
+     (when err
+       [:p [:strong "Error: "] err])
+
+     [:div
+      (when logged-in?
+        [:button {:on-click #(rf/dispatch [:auth/refresh-now])}
+         "Force refresh"])
+      (when (and logged-in? (not has-refresh?))
+        [:p "Note: no refresh token is available; when access expires you’ll need to log in again."])]]))
+
 (defn claims-panel []
   (let [id-token @(rf/subscribe [:auth/id-token])
         js-claims (jwt/decode-jwt-payload id-token)]
-    [:pre {:style {:white-space "pre-wrap"}}
-     (if js-claims
-       (.stringify js/JSON js-claims nil 2)
-       "Not logged in.")]))
+    [:div
+     [:h3 "ID token claims"]
+     [:pre
+      (if js-claims
+        (pretty-json js-claims)
+        "Not logged in.")]]))
 
 (defn main []
   (let [logged-in? @(rf/subscribe [:auth/logged-in?])
-        status @(rf/subscribe [:auth/status])
-        err @(rf/subscribe [:auth/error])]
-    [:div {:style {:font-family "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-                   :max-width "900px"
-                   :margin "2rem auto"
-                   :padding "0 1rem"}}
-     [:h1 "AWS Cognito Login (re-frame + PKCE)"]
+        status @(rf/subscribe [:auth/status])]
+    [:div
+     [:h2 "AWS Cognito + Google (PKCE) — re-frame PoC"]
 
      (when (= status :exchanging)
-       [:div {:style {:margin "1rem 0" :padding "0.5rem" :background "#fff3cd"}}
-        "Completing sign-in..."])
+       [:p "Completing sign-in..."])
 
-     (when err
-       [:div {:style {:margin "1rem 0" :padding "0.5rem" :background "#f8d7da"}}
-        [:strong "Error: "] err])
-
-     [:div {:style {:display "flex" :gap "0.75rem" :margin "1rem 0"}}
+     [:div
       (when-not logged-in?
         [:button {:on-click #(rf/dispatch [:auth/login-clicked])} "Login with Google"])
       (when logged-in?
         [:button {:on-click #(rf/dispatch [:auth/logout-clicked])} "Logout"])]
 
+     [session-panel]
      [claims-panel]]))
