@@ -83,3 +83,5 @@ For production, prefer a BFF/Lambda approach to keep refresh tokens out of brows
 
 - [Routing (no dependencies)](docs/routing.md)
 - [Routing + OAuth flow](docs/routing-diagram.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Migration Checklist](docs/migration-checklist.md)
