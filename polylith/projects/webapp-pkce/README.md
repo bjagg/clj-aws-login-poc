@@ -7,7 +7,7 @@ npm install
 npx shadow-cljs watch app
 ```
 
-Open: http://localhost:3000
+Open: [http://localhost:3000]
 
 ## Runtime config
 
@@ -16,6 +16,7 @@ Copy:
 - `../../bases/webapp/resources/public/config.example.js` -> `../../bases/webapp/resources/public/config.js`
 
 Replace:
+
 - `__HOSTED_UI__`
 - `__CLIENT_ID__`
 
