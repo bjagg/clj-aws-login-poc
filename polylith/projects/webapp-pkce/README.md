@@ -1,23 +1,137 @@
-# webapp-pkce (shadow-cljs)
+# webapp-pkce (re-frame + Polylith)
 
-From this folder:
+This project is a **complete, deployable re-frame SPA** using:
+
+- AWS Cognito Hosted UI
+- Authorization Code + PKCE
+- Google + local (Cognito) users
+- Token refresh (PoC approach)
+
+---
+
+## Prerequisites
+
+- AWS account
+- Domain registered in Route53
+- Google OAuth client (for Google login)
+- Node.js + npm
+- Clojure CLI
+
+---
+
+## ⚠️ Infrastructure warning (READ THIS)
+
+This project creates **real AWS resources**:
+
+- S3 bucket
+- CloudFront distribution
+- Cognito User Pool + App Client + Domain
+
+Before deploying:
+
+1. Pick a unique project name:
+
+   ```bash
+   export PROJECT_NAME=aws-login-pkce-demo
+   ```
+
+2. If you have ever deployed this before:
+   ```bash
+   ./scripts/destroy.sh
+   ```
+   - You may need to **empty the S3 bucket manually** if deletion fails.
+
+3. Never reuse a `PROJECT_NAME` from another environment.
+
+---
+
+## 1. Deploy infrastructure
+
+From this directory:
+
+```bash
+cd polylith/projects/webapp-pkce
+
+./scripts/check-prereqs.sh
+./scripts/deploy.sh
+```
+
+Take note of the outputs:
+
+- Cognito domain
+- UserPoolClientId
+- CloudFront domain
+
+---
+
+## 2. Configure the SPA
+
+Create `resources/public/config.js`:
+
+```js
+window.__APP_CONFIG__ = {
+  cognitoDomain: "https://<prefix>.auth.us-east-1.amazoncognito.com",
+  clientId: "<UserPoolClientId>",
+  redirectUri: "http://localhost:3000/callback",
+  logoutUri: "http://localhost:3000/",
+  scopes: "openid email profile"
+};
+```
+
+For production, update the URIs to your deployed domain.
+
+---
+
+## 3. Run locally
 
 ```bash
 npm install
 npx shadow-cljs watch app
 ```
 
-Open: [http://localhost:3000]
+Open:
+```
+http://localhost:3000
+```
 
-## Runtime config
+---
 
-Copy:
+## 4. Test login flows
 
-- `../../bases/webapp/resources/public/config.example.js` -> `../../bases/webapp/resources/public/config.js`
+- Google login
+- Local signup/login (Hosted UI)
+- Token refresh (use **Force refresh** button)
+- Guarded route: `/#/claims`
 
-Replace:
+---
 
-- `__HOSTED_UI__`
-- `__CLIENT_ID__`
+## 5. Tear down (important)
 
-> For local Hosted UI testing, temporarily add `http://localhost:3000/callback` to your Cognito App Client Callback URLs.
+When finished:
+
+```bash
+./scripts/destroy.sh
+```
+
+If deletion fails:
+
+- Empty the S3 bucket
+- Re-run destroy
+
+---
+
+## What this project intentionally omits
+
+- Backend-for-Frontend (BFF)
+- Secure refresh token storage
+- Server-side session management
+
+These are discussed in `docs/migration-checklist.md`.
+
+---
+
+## Next steps
+
+- Migrate components into your own app
+- Replace PoC refresh with BFF/Lambda approach
+- Enable refresh token rotation (production)

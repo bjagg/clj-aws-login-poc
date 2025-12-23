@@ -1,87 +1,88 @@
-# Polylith (aws-login) — re-frame + PKCE
+# Polylith AWS Cognito PKCE Login (re-frame)
 
-This folder is the Polylith workspace for the **re-frame PKCE** implementation.
+This repository contains **learning-focused implementations** of AWS Cognito login
+using **Authorization Code + PKCE**, progressing from simple smoke tests to a
+production-shaped re-frame + Polylith application.
 
-## Structure
+If you want the **real application example**, start here:
 
-- `components/oauth-pkce` — PKCE + token exchange + token storage
-- `components/app-config` — runtime config from `window.__APP_CONFIG__`
-- `bases/webapp` — minimal re-frame SPA (Login/Logout + claims display)
-- `projects/webapp-pkce` — shadow-cljs build (dev server + release build)
+👉 **`polylith/projects/webapp-pkce/`**
 
-## Run locally
+---
 
-```bash
-cd projects/webapp-pkce
-npm install
-npx shadow-cljs watch app
+## Repo structure
+
+```
+smoke/            # Minimal static smoke test (no PKCE)
+smoke-pkce/       # Static PKCE smoke test (pure JS)
+polylith/         # re-frame + Polylith implementation (this section)
 ```
 
-Open: [http://localhost:3000]
-
-## Refresh tokens (PoC approach)
-
-This project demonstrates a **simple refresh-on-demand** strategy:
-
-- The initial PKCE code exchange stores:
-  - `id_token`, `access_token`, and (if provided) `refresh_token`
-- On startup (or before protected API calls), the app can dispatch:
-  - `[:auth/ensure-fresh]`
-- If the access token expires soon (default: 60s), the app uses:
-  - `grant_type=refresh_token` against Cognito `/oauth2/token`
-
-### Security note
-
-For simplicity, the PoC stores tokens in **localStorage**, including the refresh token.
-That is *not* the safest choice for production because JS-accessible storage is vulnerable to XSS.
-
-**Production path (recommended):** use a small backend (e.g., Lambda + API Gateway) to hold refresh tokens server-side
-and issue short-lived access tokens to the SPA via HttpOnly cookies.
+Each folder is **self-contained** and can be deployed independently.
 
 ---
 
-## What this repo teaches
+## Polylith layout
 
-1. How to deploy AWS Cognito + Hosted UI for a SPA
-2. How to implement Authorization Code + **PKCE** in a re-frame app
-3. How to add **local signup/login** (Cognito native users)
-4. How to add **refresh-on-demand** (PoC approach)
+```
+polylith/
+  components/
+    oauth-pkce/        # PKCE + token exchange + refresh (PoC)
+    app-config/        # Runtime config via window.__APP_CONFIG__
+  bases/
+    webapp/            # re-frame SPA
+  projects/
+    webapp-pkce/       # Deployable SPA + infra + scripts
+      infra/cfn/
+      scripts/
+```
 
----
-
-## Quick start (local)
-
-1. Deploy AWS stacks (see `smoke-pkce/` or your project’s infra/scripts)
-2. Create `config.js` from `config.example.js`
-3. Run:
-   - `npm install`
-   - `npx shadow-cljs watch app`
-4. Open:
-   - `http://localhost:3000`
+Infrastructure and deployment scripts live **with the deployable project**.
 
 ---
 
-## Local signup/login
+## ⚠️ Important: infrastructure lifecycle
 
-See: `docs/local-signup-login.md`
+Before deploying **anything** under `polylith/projects/webapp-pkce/`:
+
+- Read the project README
+- Destroy any previous smoke stacks using their project name
+- Choose a unique `PROJECT_NAME`
+- Destroy any previous stacks using the same name
+
+CloudFormation will **not overwrite safely** if:
+
+- bucket names collide
+- Cognito domains already exist
 
 ---
 
-## Refresh tokens
+## Learning goals (Polylith version)
 
-See: `docs/refresh-tokens.md`
+This implementation demonstrates:
+
+- Cognito Hosted UI (local + Google login)
+- Authorization Code + PKCE (SPA-safe)
+- Token refresh (PoC approach, documented tradeoffs)
+- Route guarding (no routing libraries)
+- Polylith component boundaries for auth logic
 
 ---
 
 ## Production note
 
-For production, prefer a BFF/Lambda approach to keep refresh tokens out of browser storage.
+This repo intentionally implements a **simple refresh-token strategy** using
+`localStorage` so learners can see the mechanics.
+
+👉 **Do not copy this verbatim into production**  
+See: `docs/refresh-tokens.md` and `docs/migration-checklist.md`.
 
 ---
 
-## More documentation
+## Where to go next
 
-- [Routing (no dependencies)](docs/routing.md)
-- [Routing + OAuth flow](docs/routing-diagram.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Migration Checklist](docs/migration-checklist.md)
+- Start with: `projects/webapp-pkce/README.md`
+- Then review:
+  - `docs/local-signup-login.md`
+  - `docs/refresh-tokens.md`
+  - `docs/troubleshooting.md`
