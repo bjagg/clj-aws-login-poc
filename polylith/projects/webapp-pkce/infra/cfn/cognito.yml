@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cognito UserPool + Hosted UI + Google IdP (secrets from Secrets Manager)
+
+Parameters:
+  ProjectName: { Type: String }
+  CallbackURL: { Type: String }
+  LogoutURL:   { Type: String }
+  DomainPrefix: { Type: String, Description: "Cognito domain prefix (Hosted UI domain)" }
+  GoogleSecretName:
+    Type: String
+    Description: Secrets Manager secret name containing JSON keys client_id and client_secret (e.g., sso-poc/google-oauth)
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-pool"
+      AutoVerifiedAttributes: [ email ]
+      Schema:
+        - Name: email
+          Required: true
+          AttributeDataType: String
+
+  GoogleProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      ProviderName: Google
+      ProviderType: Google
+      UserPoolId: !Ref UserPool
+      AttributeMapping: { email: email }
+      ProviderDetails:
+        client_id: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_id}}"
+        client_secret: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_secret}}"
+        authorize_scopes: "openid email profile"
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: GoogleProvider
+    Properties:
+      ClientName: !Sub "${ProjectName}-spa"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+
+      # PKCE-friendly (SPA best practice): Authorization Code Flow only.
+      # Note: PKCE itself is performed by the SPA at runtime; Cognito does not store a "PKCE flag" here.
+      AllowedOAuthFlows: [ code ]
+      AllowedOAuthScopes: [ openid, email, profile ]
+
+      CallbackURLs: [ !Ref CallbackURL ]
+      LogoutURLs:   [ !Ref LogoutURL ]
+      SupportedIdentityProviders: [ COGNITO, Google ]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref DomainPrefix
+      UserPoolId: !Ref UserPool
+
+Outputs:
+  UserPoolId:     { Value: !Ref UserPool }
+  UserPoolClientId: { Value: !Ref UserPoolClient }
+  HostedUiDomain: { Value: !Sub "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com" }
