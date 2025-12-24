@@ -101,7 +101,7 @@ Resources:
     Properties:
       Domain: !Ref DomainPrefix
       UserPoolId: !Ref UserPool
-      ManagedLoginVersion: 2
+      ManagedLoginVersion: 1
 
 Outputs:
   UserPoolId:
