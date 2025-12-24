@@ -6,6 +6,7 @@ This project is a **complete, deployable re-frame SPA** using:
 - Authorization Code + PKCE
 - Google + local (Cognito) users
 - Token refresh (PoC approach)
+- This tutorial uses classic hosted UI (ManagedLoginVersion: 1) for widest compatibility (Lite plan)
 
 ---
 

@@ -12,6 +12,12 @@ to a **static SPA** hosted on AWS, using:
 
 ---
 
+## Recommended path
+
+- Start with smoke → smoke-pkce → polylith webapp-pkce
+
+---
+
 ## Choose your path
 
 ### 1) Smoke test (Implicit Flow) — quickest sanity check
