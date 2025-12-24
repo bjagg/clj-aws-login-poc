@@ -8,8 +8,8 @@ set -euo pipefail
 
 # Defaults for this repo (override by exporting env vars before running)
 : "${AWS_REGION:=us-east-1}"
-: "${HOSTED_ZONE_ID:=Z05863342TZ6JN82178DO}"
-: "${DOMAIN_NAME:=sso-poc.rpgsecrets.net}"
+: "${HOSTED_ZONE_ID:=123456789012}"
+: "${DOMAIN_NAME:=sso-poc.example.net}"
 : "${GOOGLE_SECRET_NAME:=sso-poc/google-oauth}"
 
 err() { echo "ERROR: $*" >&2; exit 1; }

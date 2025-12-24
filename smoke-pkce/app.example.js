@@ -12,8 +12,8 @@
 const cfg = {
   cognitoDomain: "__HOSTED_UI__",
   clientId: "__CLIENT_ID__",
-  redirectUri: "https://sso-poc.rpgsecrets.net/callback",
-  logoutUri: "https://sso-poc.rpgsecrets.net/",
+  redirectUri: "https://sso-poc.example.net/callback",
+  logoutUri: "https://sso-poc.example.net/",
   scopes: "openid+email+profile"
 };
 

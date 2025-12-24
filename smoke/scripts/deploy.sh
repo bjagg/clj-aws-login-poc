@@ -7,11 +7,11 @@ cd "$ROOT_DIR"
 export AWS_REGION=${AWS_REGION:-us-east-1}
 
 # Defaults (override by exporting env vars before running)
-: "${HOSTED_ZONE_ID:=Z05863342TZ6JN82178DO}"
-: "${DOMAIN_NAME:=sso-poc.rpgsecrets.net}"
+: "${HOSTED_ZONE_ID:=123456789012}"
+: "${DOMAIN_NAME:=sso-poc.example.net}"
 : "${PROJECT_NAME:=sso-poc-smoke}"
 : "${GOOGLE_SECRET_NAME:=sso-poc/google-oauth}"
-: "${COGNITO_DOMAIN_PREFIX:=rpgsecrets-sso-poc}"
+: "${COGNITO_DOMAIN_PREFIX:=example-sso-poc}"
 
 echo "Deploying ACM certificate stack..."
 aws cloudformation deploy \
