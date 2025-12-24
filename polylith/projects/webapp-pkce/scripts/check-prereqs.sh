@@ -73,6 +73,22 @@ PY
 aws cloudformation list-stacks --max-items 1 --region "${AWS_REGION}" >/dev/null 2>&1   || err "CloudFormation access check failed. Ensure permissions include cloudformation:* for deployment."
 ok "CloudFormation access looks good"
 
+if echo "$COGNITO_DOMAIN_PREFIX" | grep -qi '\baws\b'; then
+  echo "ERROR: COGNITO_DOMAIN_PREFIX cannot contain reserved word 'aws'. Choose another prefix."
+  exit 1
+fi
+
+domain_val=$(aws cognito-idp describe-user-pool-domain \
+  --domain "$COGNITO_DOMAIN_PREFIX" \
+  --region "$AWS_REGION" \
+  --query "DomainDescription.Domain" \
+  --output text 2>/dev/null || true)
+
+if [ "$domain_val" != "None" ] && [ -n "$domain_val" ]; then
+  echo "ERROR: Cognito domain prefix already in use: $COGNITO_DOMAIN_PREFIX"
+  exit 1
+fi
+
 echo
 echo "All prerequisite checks passed."
 echo "Next:"

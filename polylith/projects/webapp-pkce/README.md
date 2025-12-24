@@ -22,8 +22,10 @@ This project is a **complete, deployable re-frame SPA** using:
 You may define all required environment variables in a `.env` file:
 
 ```bash
-cp .env.example .env
+;; should be here already -- cd polylith/projects/webapp-pkce
+cp scripts/.env.example .env
 ```
+
 The deployment scripts will automatically load .env if present.
 
 The .env file is ignored by git.
@@ -42,6 +44,11 @@ This project creates **real AWS resources**:
 > Changing values in `.env` (especially `PROJECT_NAME`,
 > `COGNITO_DOMAIN_PREFIX`, or domain settings) may require tearing down
 > existing stacks before redeploying.
+
+also...
+
+> [!WARNING]
+> Do not use reserved words like `aws` in COGNITO_DOMAIN_PREFIX
 
 Before deploying:
 
@@ -69,7 +76,7 @@ Before deploying:
 From this directory:
 
 ```bash
-cd polylith/projects/webapp-pkce
+;; should be here already -- cd polylith/projects/webapp-pkce
 
 ./scripts/check-prereqs.sh
 ./scripts/deploy.sh

@@ -56,8 +56,8 @@ Resources:
         given_name: given_name
         family_name: family_name
       ProviderDetails:
-        client_id: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:clientId}}"
-        client_secret: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:clientSecret}}"
+        client_id: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_id}}"
+        client_secret: !Sub "{{resolve:secretsmanager:${GoogleSecretName}:SecretString:client_secret}}"
 
         # IMPORTANT:
         # Google does NOT support an "offline_access" scope value.
@@ -101,6 +101,7 @@ Resources:
     Properties:
       Domain: !Ref DomainPrefix
       UserPoolId: !Ref UserPool
+      ManagedLoginVersion: 2
 
 Outputs:
   UserPoolId:
